@@ -1,0 +1,37 @@
+// Modules Required - Item Macro, MIDQOL, Dynamic Active Effects
+// Card settings - Target & range: Self
+// DAE settings - [1] flags.dnd5e.DamageBonusMacro / Custom / ItemMacro
+
+try {
+    if (!["mwak","rwak"].includes(args[0].item.system.actionType)) return {}; 
+    if (args[0].hitTargetUuids.length === 0) return {}; // did not hit anyone
+    let selected = await MidiQOL.MQfromActorUuid(args[0].actorUuid); 
+    let DC = selected.system.attributes.spelldc;
+    for (let tokenUuid of args[0].hitTargetUuids) {
+        const target = await fromUuid(tokenUuid);
+        const targetActor = target.actor;
+        const flavor = `<p>${"Strength Saving Throw"}</p><p>${CONFIG.DND5E.abilities["str"].label} DC ${DC} </P> `;
+        let conSave = (await targetActor.rollAbilitySave("str", { flavor, fastForward: false})).total; 
+    
+        if (conSave < DC) {  
+            const effectData = {
+            label: "Prone", 
+            icon: "modules/dfreds-convenient-effects/images/prone.svg",
+            changes: [
+            {key: "macro.CE", mode: 0, value: "Prone", priority: 20}
+                    ],
+            }
+        
+        await MidiQOL.socket().executeAsGM("createEffects", { actorUuid: targetActor.uuid, effects: [effectData] });
+        await ChatMessage.create({content: `${target.name} is pushed 10 feet away from ${selected.name} and knocked from their feet!`}); 
+        }
+    }
+    Hooks.once("midi-qol.RollComplete", (workflow) => {
+        const effect = MidiQOL.getConcentrationEffect(actor);
+        if (effect) effect.delete();
+        return true;
+    })
+    return{damageRoll: `2d6[thunder]`, flavor: "Громовая кара / Thunderous Smite"}
+} catch (err) {
+    console.error(`${args[0].itemData.name} - Thunderous Smite`, err);
+}
