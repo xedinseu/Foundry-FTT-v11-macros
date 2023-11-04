@@ -1,0 +1,39 @@
+// Modules Required - Item Macro, MIDQOL, Dynamic Active Effects
+// Card settings - Target & range: Self
+// DAE settings - [1] flags.dnd5e.DamageBonusMacro / Custom / ItemMacro [2] flags.midi-qol.brandingSmite.level / Override / @item.level
+
+try {
+    if (!["mwak","rwak"].includes(args[0].item.system.actionType)) return {}; 
+    if (args[0].hitTargetUuids.length === 0) return {}; // did not hit anyone
+    let selected = await MidiQOL.MQfromActorUuid(args[0].actorUuid); 
+    let DC = selected.system.attributes.spelldc;
+    for (let tokenUuid of args[0].hitTargetUuids) {
+        const target = await fromUuid(tokenUuid);
+        const targetActor = target.actor;
+        if (!targetActor) continue;
+        const effectData = {
+            label: "Жгучая кара / Searing Smite", 
+            icon: "icons/skills/melee/strike-sword-steel-yellow.webp",
+            changes: [
+              {key: "flags.midi-qol.OverTime", mode: 0, value: `"turn=start,saveAbility=con,saveDC=${DC},damageRoll=1d6,damageType=fire,label=Searing Smite" `, priority: 20}, 
+                    ],
+      
+            origin: "Жгучая кара / Searing Smite", 
+            disabled: false,
+            icon: "icons/skills/melee/strike-sword-steel-yellow.webp",
+            label: "Жгучая кара / Searing Smite"
+          }
+          await MidiQOL.socket().executeAsGM("createEffects", { actorUuid: targetActor.uuid, effects: [effectData] });
+          await ChatMessage.create({content: `${target.name} is set on fire and begins to burn!`});
+    
+    }
+    const spellLevel = actor.flags["midi-qol"].brandingSmite.level;
+    Hooks.once("midi-qol.RollComplete", (workflow) => {
+        const effect = MidiQOL.getConcentrationEffect(actor);
+        if (effect) effect.delete();
+        return true;
+    })
+    return{damageRoll: `${spellLevel}d6[fire]`, flavor: "Жгучая кара / Searing Smite"}
+} catch (err) {
+    console.error(`${args[0].itemData.name} - Searing Smite`, err);
+}
